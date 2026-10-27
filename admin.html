@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090d18">
+  <title>KPL Season 03 | Admin Auction</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --bg: #090d18;
+      --card: #141d30;
+      --gold: #f5c451;
+      --text: #f5f7fb;
+      --muted: #aab5ca;
+      --green: #49dfa0;
+      --red: #ff7474;
+      --border: #2d3b56;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 24px 15px;
+      text-align: center;
+      background: linear-gradient(135deg, #192b4c, #090d18);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      color: var(--gold);
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: 3px;
+    }
+
+    h1 {
+      font-size: clamp(24px, 5vw, 36px);
+      margin: 10px 0;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 9px;
+      padding: 13px;
+      background: #101729;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      background: #1b2942;
+      border: 1px solid var(--border);
+      padding: 10px 13px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    main {
+      width: min(1000px, 100%);
+      margin: auto;
+      padding: 16px 12px 35px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 17px;
+      margin-bottom: 15px;
+      min-width: 0;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 0 0 15px;
+    }
+
+    h3 {
+      font-size: 15px;
+      margin: 0 0 12px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 15px 10px;
+      background: #0e1627;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      text-align: center;
+      min-width: 0;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      color: var(--gold);
+      font-weight: 900;
+      font-size: 21px;
+      overflow-wrap: anywhere;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin: 13px 0 7px;
+    }
+
+    input, select {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      background: #0a1120;
+      border: 1px solid #394965;
+      border-radius: 9px;
+      padding: 12px;
+      color: white;
+      font-size: 14px;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--gold);
+    }
+
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      color: #111827;
+      background: var(--gold);
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+      margin-top: 13px;
+    }
+
+    .btn-full {
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .btn-secondary {
+      color: white;
+      background: #34435e;
+    }
+
+    .btn-green {
+      background: #24c987;
+    }
+
+    .btn-red {
+      color: white;
+      background: #c93d4b;
+    }
+
+    .btn-blue {
+      color: white;
+      background: #3268d7;
+    }
+
+    .live-bid {
+      padding: 20px 12px;
+      text-align: center;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #27395a, #101729);
+      border: 1px solid #425779;
+      margin: 12px 0;
+    }
+
+    .live-bid .caption {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .live-bid .amount {
+      font-size: clamp(30px, 8vw, 42px);
+      color: var(--gold);
+      font-weight: 900;
+      margin: 8px 0;
+      overflow-wrap: anywhere;
+    }
+
+    .live-bid .player {
+      font-size: 18px;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+
+    .message {
+      border-radius: 9px;
+      padding: 12px;
+      margin-bottom: 15px;
+      background: #17233a;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .message.success {
+      color: var(--green);
+      border: 1px solid #27684e;
+    }
+
+    .message.error {
+      color: var(--red);
+      border: 1px solid #71343b;
+    }
+
+    .warning {
+      color: #ffdc89;
+      background: #382e19;
+      border: 1px solid #665125;
+      border-radius: 9px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.7;
+      margin-top: 12px;
+    }
+
+    .team-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .team-card {
+      padding: 12px;
+      background: #0e1627;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      overflow-wrap: anywhere;
+    }
+
+    .team-name {
+      font-weight: 800;
+      font-size: 12px;
+      margin-bottom: 9px;
+      line-height: 1.5;
+    }
+
+    .team-info {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.8;
+    }
+
+    .green { color: var(--green); }
+    .gold { color: var(--gold); }
+
+    .small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #7f8ca4;
+      border-top: 1px solid #202c42;
+    }
+
+    @media (min-width: 650px) {
+      main { padding: 25px 18px 40px; }
+      .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .team-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .auction-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        align-items: start;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="brand">KALLIOT PREMIER LEAGUE</div>
+    <h1>SEASON 03</h1>
+    <div class="subtitle">ADMIN AUCTION CONTROL PANEL</div>
+  </header>
+
+  <nav>
+    <a href="index.html">ഹോം</a>
+    <a href="teams.html">ടീമുകൾ</a>
+    <a href="admin.html">അഡ്മിൻ</a>
+    <a href="live.html">ലൈവ് ലേലം</a>
+  </nav>
+
+  <main>
+    <div id="message" class="message">
+      API-യുമായി ബന്ധപ്പെടാൻ ശ്രമിക്കുന്നു...
+    </div>
+
+    <section class="card">
+      <h2>🔐 അഡ്മിൻ പ്രവേശനം</h2>
+
+      <label for="pin">അഡ്മിൻ PIN</label>
+      <input
+        id="pin"
+        type="password"
+        autocomplete="current-password"
+        placeholder="നിങ്ങളുടെ അഡ്മിൻ PIN നൽകുക"
+      >
+
+      <button class="btn-full" id="connectBtn" onclick="connectAPI()">
+        API പരിശോധിക്കുക
+      </button>
+
+      <div class="warning">
+        നിങ്ങളുടെ യഥാർത്ഥ PIN ഈ HTML ഫയലിൽ എഴുതരുത്.
+        PIN മറ്റുള്ളവരുമായി പങ്കിടരുത്. ബാക്കെൻഡിൽ PIN പരിശോധിക്കുന്ന
+        സംവിധാനം ഉണ്ടായിരിക്കണം.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>📊 ലേല സംഗ്രഹം</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">ആകെ ടീമുകൾ</div>
+          <div class="stat-value" id="teamCount">16</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">ആകെ കളിക്കാർ</div>
+          <div class="stat-value" id="playerCount">—</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">SOLD</div>
+          <div class="stat-value" id="soldCount">—</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">UNSOLD</div>
+          <div class="stat-value" id="unsoldCount">—</div>
+        </div>
+      </div>
+
+      <p class="small">
+        ലേല ഡാറ്റ ബാക്കെൻഡിൽ നിന്ന് ലഭിക്കുമ്പോൾ മാത്രമേ യഥാർത്ഥ കണക്കുകൾ
+        ഇവിടെ കാണിക്കൂ.
+      </p>
+    </section>
+
+    <div class="auction-layout">
+      <section class="card">
+        <h2>🏏 കളിക്കാരനെ തിരഞ്ഞെടുക്കുക</h2>
+
+        <label for="playerSelect">കളിക്കാരൻ</label>
+        <select id="playerSelect">
+          <option value="">ആദ്യം കളിക്കാരുടെ വിവരങ്ങൾ ലോഡ് ചെയ്യുക</option>
+        </select>
+
+        <button class="btn-full btn-secondary"
+          id="loadPlayersBtn" onclick="loadPlayers()">
+          കളിക്കാരെ ലോഡ് ചെയ്യുക
+        </button>
+
+        <button class="btn-full"
+          id="currentPlayerBtn" onclick="setCurrentPlayer()">
+          തിരഞ്ഞെടുത്ത കളിക്കാരനെ ലേലത്തിന് വെക്കുക
+        </button>
+
+        <div class="warning">
+          Google Sheet-ലെ Players പട്ടികയിൽ കളിക്കാർ ചേർത്തിട്ടില്ലെങ്കിൽ
+          ഈ ലിസ്റ്റ് ശൂന്യമായിരിക്കും.
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>💰 നിലവിലെ ലേലം</h2>
+
+        <div class="live-bid">
+          <div class="caption">നിലവിലെ കളിക്കാരൻ</div>
+          <div class="player" id="currentPlayerName">കളിക്കാരനെ തിരഞ്ഞെടുത്തിട്ടില്ല</div>
+          <div class="caption" style="margin-top:15px">നിലവിലെ ബിഡ്</div>
+          <div class="amount" id="currentBid">₹1,000</div>
+          <div class="caption">ഓരോ ബിഡിലും വർധന: ₹1,000</div>
+        </div>
+
+        <label for="bidTeam">ബിഡ് ചെയ്യുന്ന ടീം</label>
+        <select id="bidTeam">
+          <option value="">ടീം തിരഞ്ഞെടുക്കുക</option>
+        </select>
+
+        <div class="btn-row">
+          <button id="bidBtn" class="btn-blue" onclick="placeBid()">
+            + ₹1,000 ബിഡ്
+          </button>
+          <button class="btn-secondary" onclick="refreshAll()">
+            പുതുക്കുക
+          </button>
+        </div>
+
+        <label for="soldTeam">SOLD ചെയ്യുന്ന ടീം</label>
+        <select id="soldTeam">
+          <option value="">ടീം തിരഞ്ഞെടുക്കുക</option>
+        </select>
+
+        <div class="btn-row">
+          <button class="btn-green" id="soldBtn" onclick="sellPlayer()">
+            SOLD
+          </button>
+          <button class="btn-red" id="unsoldBtn" onclick="markUnsold()">
+            UNSOLD
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>🏆 ടീം ബജറ്റ് വിവരങ്ങൾ</h2>
+      <div class="team-list" id="teamList">
+        <div class="small">ടീം വിവരങ്ങൾ ലോഡ് ചെയ്യുന്നു...</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>🔄 ഡാറ്റ പുതുക്കൽ</h2>
+      <p class="small">
+        Google Sheet-ലെയും ലേല ബാക്കെൻഡിലെയും നിലവിലെ വിവരങ്ങൾ വീണ്ടും
+        വായിക്കാൻ താഴെയുള്ള ബട്ടൺ ഉപയോഗിക്കുക.
+      </p>
+      <button class="btn-full btn-secondary" onclick="refreshAll()">
+        എല്ലാ വിവരങ്ങളും പുതുക്കുക
+      </button>
+    </section>
+  </main>
+
+  <footer>
+    KALLIOT PREMIER LEAGUE Season 03<br>
+    Admin Auction Control
+  </footer>
+
+  <script>
+    const API_URL =
+      "https://script.google.com/macros/s/AKfycbydD5G_BHVGIZIkXSfVgXi4DeL8elCX4wZ1st5QEHUq7-MqvIozyyptgp1k_vIBBACR/exec";
+
+    const TEAM_BUDGET = 100000;
+    const MAX_PLAYERS = 8;
+    const BASE_PRICE = 1000;
+    const BID_INCREMENT = 1000;
+
+    const OFFICIAL_TEAMS = [
+      "OPTICS PERIYA",
+      "RSA NILESHWARAM",
+      "IJUZ KR BDK",
+      "RAJEEVIJI KALLIOT",
+      "SRS FRIENDS",
+      "ACADEMY BOYS",
+      "RAM BROTHERS KALAMNAGAR",
+      "LEGENDS KASARAGOD",
+      "PERIYAS",
+      "BASC",
+      "KALLAI BROTHERS NILESHWAR",
+      "VOLCANO VARANJOOR",
+      "SUPER STRIKERS ERUMAKULAM",
+      "WINDIES MARIKKALAM",
+      "SHIVAJI KOTTAPARA",
+      "FALCONS ERIYA"
+    ];
+
+    let teams = [];
+    let players = [];
+    let liveState = {};
+    let apiConnected = false;
+
+    const $ = id => document.getElementById(id);
+
+    function showMessage(text, type = "") {
+      const box = $("message");
+      box.textContent = text;
+      box.className = "message " + type;
+    }
+
+    function money(value) {
+      const n = Number(value);
+      return "₹" + (Number.isFinite(n) ? n : 0)
+        .toLocaleString("en-IN");
+    }
+
+    function normalizeKey(value) {
+      return String(value ?? "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+    }
+
+    function field(obj, names, fallback = "") {
+      if (!obj || typeof obj !== "object") return fallback;
+
+      for (const name of names) {
+        const target = normalizeKey(name);
+        const key = Object.keys(obj).find(
+          k => normalizeKey(k) === target
+        );
+
+        if (key !== undefined && obj[key] !== null &&
+            obj[key] !== "") {
+          return obj[key];
+        }
+      }
+
+      return fallback;
+    }
+
+    function numberValue(value) {
+      const n = Number(String(value ?? 0).replace(/[₹,\s]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function getArray(data, names) {
+      if (Array.isArray(data)) return data;
+
+      for (const name of names) {
+        if (Array.isArray(data && data[name])) return data[name];
+      }
+
+      return [];
+    }
+
+    async function getJSON(url) {
+      const response = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        redirect: "follow"
+      });
+
+      if (!response.ok) {
+        throw new Error("HTTP " + response.status);
+      }
+
+      const data = await response.json();
+
+      if (data && data.success === false) {
+        throw new Error(data.message || "API പിശക്");
+      }
+
+      return data;
+    }
+
+    /*
+      doPost(e) ബാക്കെൻഡിൽ e.parameter.data വായിക്കുന്ന രീതിയിലാണ്
+      താഴെയുള്ള POST അഭ്യർത്ഥനകൾ തയ്യാറാക്കിയിരിക്കുന്നത്.
+      ബാക്കെൻഡ് വേറൊരു ഫോർമാറ്റ് ആവശ്യപ്പെടുന്നുണ്ടെങ്കിൽ അത്
+      പൊരുത്തപ്പെടുത്തണം.
+    */
+    async function postAction(payload) {
+      const pin = $("pin").value.trim();
+
+      if (!pin) {
+        throw new Error("അഡ്മിൻ PIN നൽകുക.");
+      }
+
+      const body = new URLSearchParams();
+      body.set("data", JSON.stringify({
+        ...payload,
+        pin: pin
+      }));
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        body: body,
+        redirect: "follow"
+      });
+
+      const raw = await response.text();
+      let result;
+
+      try {
+        result = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          "സെർവറിൽ നിന്ന് JSON പ്രതികരണം ലഭിച്ചില്ല. doPost പരിശോധിക്കുക."
+        );
+      }
+
+      if (!response.ok || result.success === false) {
+        throw new Error(
+          result.message || "പ്രവർത്തനം വിജയിച്ചില്ല."
+        );
+      }
+
+      return result;
+    }
+
+    async function connectAPI() {
+      $("connectBtn").disabled = true;
+
+      try {
+        const result = await getJSON(API_URL + "?action=ping");
+
+        apiConnected = true;
+
+        showMessage(
+          "API ബന്ധം വിജയിച്ചു. " +
+          (result.message || "സെർവർ പ്രതികരിച്ചു.") +
+          " ലേല പ്രവർത്തനങ്ങൾക്കായി ആവശ്യമായ doGet/doPost പ്രവർത്തനങ്ങളും പരിശോധിക്കണം.",
+          "success"
+        );
+
+        await refreshAll();
+      } catch (error) {
+        apiConnected = false;
+        showMessage("API പിശക്: " + error.message, "error");
+      } finally {
+        $("connectBtn").disabled = false;
+      }
+    }
+
+    async function loadTeams() {
+      const data = await getJSON(API_URL + "?action=teams");
+      teams = getArray(data, ["teams", "data", "results"]);
+      renderTeamOptions();
+      renderTeams();
+    }
+
+    async function loadPlayers() {
+      $("loadPlayersBtn").disabled = true;
+
+      try {
+        const data = await getJSON(API_URL + "?action=players");
+        players = getArray(data, ["players", "data", "results"]);
+
+        const select = $("playerSelect");
+        select.replaceChildren();
+
+        const first = document.createElement("option");
+        first.value = "";
+        first.textContent = players.length
+          ? "കളിക്കാരനെ തിരഞ്ഞെടുക്കുക"
+          : "കളിക്കാരുടെ പട്ടിക ശൂന്യമാണ്";
+        select.appendChild(first);
+
+        players.forEach((player, index) => {
+          const id = field(player, [
+            "PlayerID", "PlayerId", "RegistrationNumber",
+            "RegNo", "ID"
+          ], "");
+
+          const name = field(player, [
+            "PlayerName", "Name", "Player"
+          ], "Player " + (index + 1));
+
+          const status = field(player, [
+            "AuctionStatus", "Status"
+          ], "AVAILABLE");
+
+          const option = document.createElement("option");
+          option.value = String(id || name);
+          option.textContent = name + " — " + status;
+          option.dataset.playerName = String(name);
+          option.dataset.playerId = String(id || name);
+          option.dataset.status = String(status);
+          select.appendChild(option);
+        });
+
+        $("playerCount").textContent = players.length;
+        showMessage(
+          players.length
+            ? players.length + " കളിക്കാർ ലഭിച്ചു."
+            : "Players പട്ടികയിൽ കളിക്കാർ ചേർക്കുക.",
+          players.length ? "success" : ""
+        );
+      } catch (error) {
+        showMessage(
+          "കളിക്കാരുടെ പട്ടിക ലഭിച്ചില്ല: " + error.message +
+          "\nനിലവിലെ doGet-ൽ action=players പിന്തുണ ചേർക്കേണ്ടതുണ്ടാകാം.",
+          "error"
+        );
+      } finally {
+        $("loadPlayersBtn").disabled = false;
+      }
+    }
+
+    function renderTeamOptions() {
+      const selects = [$("bidTeam"), $("soldTeam")];
+
+      selects.forEach(select => {
+        const previous = select.value;
+        select.replaceChildren();
+
+        const first = document.createElement("option");
+        first.value = "";
+        first.textContent = "ടീം തിരഞ്ഞെടുക്കുക";
+        select.appendChild(first);
+
+        teams.forEach((team, index) => {
+          const id = field(team, [
+            "TeamID", "TeamId", "ID"
+          ], "");
+
+          const name = field(team, [
+            "TeamName", "Team Name", "Team", "Name"
+          ], OFFICIAL_TEAMS[index] || "Team " + (index + 1));
+
+          const option = document.createElement("option");
+          option.value = String(id || name);
+          option.textContent = name;
+          select.appendChild(option);
+        });
+
+        if (previous) select.value = previous;
+      });
+
+      $("teamCount").textContent = teams.length || 16;
+    }
+
+    function renderTeams() {
+      const container = $("teamList");
+      container.replaceChildren();
+
+      const map = new Map();
+
+      teams.forEach(team => {
+        const name = String(field(team, [
+          "TeamName", "Team Name", "Team", "Name"
+        ], "")).trim();
+
+        if (name) map.set(name.toLowerCase(), team);
+      });
+
+      OFFICIAL_TEAMS.forEach((name, index) => {
+        const team = map.get(name.toLowerCase()) || {};
+
+        const budget = numberValue(field(team, [
+          "Budget", "TeamBudget", "TotalBudget"
+        ], TEAM_BUDGET));
+
+        const spent = numberValue(field(team, [
+          "Spent", "TotalSpent", "SpentAmount", "UsedBudget"
+        ], 0));
+
+        const balance = Math.max(0, budget - spent);
+
+        const playerCount = numberValue(field(team, [
+          "Players", "PlayerCount", "TotalPlayers", "PlayersCount"
+        ], 0));
+
+        const card = document.createElement("div");
+        card.className = "team-card";
+
+        const title = document.createElement("div");
+        title.className = "team-name";
+        title.textContent = String(field(team, [
+          "TeamName", "Team Name", "Team", "Name"
+        ], name));
+
+        const info = document.createElement("div");
+        info.className = "team-info";
+        info.textContent =
+          "ബജറ്റ്: " + money(budget) +
+          "\nചെലവ്: " + money(spent) +
+          "\nബാക്കി: " + money(balance) +
+          "\nകളിക്കാർ: " + playerCount + " / " + MAX_PLAYERS;
+        info.style.whiteSpace = "pre-line";
+
+        card.append(title, info);
+        container.appendChild(card);
+      });
+    }
+
+    function selectedPlayer() {
+      const select = $("playerSelect");
+      const option = select.options[select.selectedIndex];
+
+      if (!option || !option.value) return null;
+
+      return {
+        id: option.dataset.playerId || option.value,
+        name: option.dataset.playerName || option.textContent,
+        status: option.dataset.status || ""
+      };
+    }
+
+    function currentPlayerId() {
+      return field(liveState, [
+        "currentPlayerId", "CurrentPlayerID", "playerId"
+      ], "");
+    }
+
+    function currentBidValue() {
+      return numberValue(field(liveState, [
+        "currentBid", "CurrentBid", "bidAmount", "amount"
+      ], BASE_PRICE));
+    }
+
+    function renderState() {
+      const name = field(liveState, [
+        "currentPlayerName", "CurrentPlayerName", "playerName"
+      ], "");
+
+      const bid = currentBidValue();
+
+      $("currentPlayerName").textContent =
+        name || "കളിക്കാരനെ തിരഞ്ഞെടുത്തിട്ടില്ല";
+
+      $("currentBid").textContent = money(bid);
+
+      const sold = numberValue(field(liveState, [
+        "soldCount", "SoldCount"
+      ], players.filter(p =>
+        /sold/i.test(String(field(p, ["AuctionStatus", "Status"], ""))) &&
+        !/unsold/i.test(String(field(p, ["AuctionStatus", "Status"], "")))
+      ).length));
+
+      const unsold = numberValue(field(liveState, [
+        "unsoldCount", "UnsoldCount"
+      ], players.filter(p =>
+        /unsold/i.test(String(field(p, ["AuctionStatus", "Status"], "")))
+      ).length));
+
+      $("soldCount").textContent = sold;
+      $("unsoldCount").textContent = unsold;
+    }
+
+    async function loadState() {
+      const data = await getJSON(API_URL + "?action=state");
+      liveState = data.state || data.data || data;
+      renderState();
+    }
+
+    async function refreshAll() {
+      try {
+        const results = await Promise.allSettled([
+          loadTeams(),
+          loadPlayers(),
+          loadState()
+        ]);
+
+        const errors = results
+          .filter(result => result.status === "rejected")
+          .map(result => result.reason.message);
+
+        if (errors.length) {
+          showMessage(
+            "ചില വിവരങ്ങൾ ലഭിച്ചില്ല:\n" +
+            errors.join("\n") +
+            "\nനിങ്ങളുടെ നിലവിലെ doGet-ൽ ping, teams മാത്രമേ പിന്തുണയ്ക്കുന്നുള്ളൂ എങ്കിൽ players, state പ്രവർത്തിക്കില്ല. പൂർണ്ണ ബാക്കെൻഡ് കോഡ് ആവശ്യമാണ്.",
+            "error"
+          );
+        } else {
+          showMessage("ടീം, കളിക്കാരൻ, ലേല വിവരങ്ങൾ പുതുക്കി.", "success");
+        }
+      } catch (error) {
+        showMessage(error.message, "error");
+      }
+    }
+
+    async function setCurrentPlayer() {
+      const player = selectedPlayer();
+
+      if (!player) {
+        showMessage("ആദ്യം ഒരു കളിക്കാരനെ തിരഞ്ഞെടുക്കുക.", "error");
+        return;
+      }
+
+      if (!confirm(
+        player.name + " എന്ന കളിക്കാരനെ നിലവിലെ ലേലത്തിന് വെക്കണോ?"
+      )) return;
+
+      $("currentPlayerBtn").disabled = true;
+
+      try {
+        const result = await postAction({
+          action: "setCurrentPlayer",
+          playerId: player.id
+        });
+
+        showMessage(
+          result.message || "ലേല കളിക്കാരനെ സജ്ജമാക്കാനുള്ള അഭ്യർത്ഥന അയച്ചു.",
+          "success"
+        );
+
+        await refreshAll();
+      } catch (error) {
+        showMessage(
+          "കളിക്കാരനെ ലേലത്തിന് വെക്കാനായില്ല: " + error.message,
+          "error"
+        );
+      } finally {
+        $("currentPlayerBtn").disabled = false;
+      }
+    }
+
+    async function placeBid() {
+      const playerId = currentPlayerId();
+      const teamId = $("bidTeam").value;
+
+      if (!playerId) {
+        showMessage("ആദ്യം ലേല കളിക്കാരനെ സജ്ജമാക്കുക.", "error");
+        return;
+      }
+
+      if (!teamId) {
+        showMessage("ബിഡ് ചെയ്യുന്ന ടീമിനെ തിരഞ്ഞെടുക്കുക.", "error");
+        return;
+      }
+
+      const amount = currentBidValue() + BID_INCREMENT;
+
+      if (!confirm(
+        "അടുത്ത ബിഡ് " + money(amount) +
+        " ആക്കണോ?"
+      )) return;
+
+      $("bidBtn").disabled = true;
+
+      try {
+        const result = await postAction({
+          action: "placeBid",
+          playerId: playerId,
+          teamId: teamId,
+          amount: amount
+        });
+
+        showMessage(
+          result.message || "ബിഡ് അഭ്യർത്ഥന അയച്ചു.",
+          "success"
+        );
+
+        await refreshAll();
+      } catch (error) {
+        showMessage("ബിഡ് പരാജയപ്പെട്ടു: " + error.message, "error");
+      } finally {
+        $("bidBtn").disabled = false;
+      }
+    }
+
+    async function sellPlayer() {
+      const playerId = currentPlayerId();
+      const teamId = $("soldTeam").value;
+
+      if (!playerId) {
+        showMessage("നിലവിലെ ലേല കളിക്കാരൻ ഇല്ല.", "error");
+        return;
+      }
+
+      if (!teamId) {
+        showMessage("SOLD ചെയ്യുന്ന ടീമിനെ തിരഞ്ഞെടുക്കുക.", "error");
+        return;
+      }
+
+      const amount = currentBidValue();
+
+      if (!confirm(
+        "ഈ കളിക്കാരനെ " + money(amount) +
+        " രൂപയ്ക്ക് തിരഞ്ഞെടുത്ത ടീമിന് SOLD ആക്കണോ?"
+      )) return;
+
+      $("soldBtn").disabled = true;
+
+      try {
+        const result = await postAction({
+          action: "sellPlayer",
+          playerId: playerId,
+          teamId: teamId,
+          amount: amount
+        });
+
+        showMessage(
+          result.message || "SOLD അഭ്യർത്ഥന അയച്ചു.",
+          "success"
+        );
+
+        await refreshAll();
+      } catch (error) {
+        showMessage(
+          "SOLD രേഖപ്പെടുത്താനായില്ല: " + error.message,
+          "error"
+        );
+      } finally {
+        $("soldBtn").disabled = false;
+      }
+    }
+
+    async function markUnsold() {
+      const playerId = currentPlayerId();
+
+      if (!playerId) {
+        showMessage("നിലവിലെ ലേല കളിക്കാരൻ ഇല്ല.", "error");
+        return;
+      }
+
+      if (!confirm("നിലവിലെ കളിക്കാരനെ UNSOLD ആക്കണോ?")) return;
+
+      $("unsoldBtn").disabled = true;
+
+      try {
+        const result = await postAction({
+          action: "markUnsold",
+          playerId: playerId
+        });
+
+        showMessage(
+          result.message || "UNSOLD അഭ്യർത്ഥന അയച്ചു.",
+          "success"
+        );
+
+        await refreshAll();
+      } catch (error) {
+        showMessage(
+          "UNSOLD രേഖപ്പെടുത്താനായില്ല: " + error.message,
+          "error"
+        );
+      } finally {
+        $("unsoldBtn").disabled = false;
+      }
+    }
+
+    connectAPI();
+  </script>
+</body>
+</html>
