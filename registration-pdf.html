@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KPL Season 03 - Player Registration PDF</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #10131b;
+      color: #ffffff;
+    }
+
+    .container {
+      max-width: 520px;
+      margin: 35px auto;
+      padding: 25px;
+      background: #1c2230;
+      border: 1px solid #354057;
+      border-radius: 16px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #ffc928;
+      font-size: 25px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #c8cfdd;
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 16px;
+      border: 1px solid #566078;
+      border-radius: 8px;
+      background: #101521;
+      color: white;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 9px;
+      background: #ffc928;
+      color: #171717;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    #message {
+      margin-top: 20px;
+      padding: 13px;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+      line-height: 1.7;
+    }
+
+    .success {
+      background: #123c2a;
+      color: #a6ffd0;
+    }
+
+    .error {
+      background: #4a2020;
+      color: #ffd0d0;
+    }
+
+    .info {
+      background: #26344c;
+      color: #d9e7ff;
+    }
+
+    a {
+      color: #ffe078;
+      font-weight: bold;
+    }
+
+    .note {
+      color: #c8cfdd;
+      font-size: 13px;
+      line-height: 1.7;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <h1>KPL SEASON 03</h1>
+    <div class="subtitle">Player Registration PDF</div>
+
+    <label for="pin">Admin PIN നൽകുക</label>
+    <input
+      type="password"
+      id="pin"
+      placeholder="Admin PIN"
+      autocomplete="current-password"
+      required
+    >
+
+    <button id="generateButton" type="button">
+      PDF തയ്യാറാക്കുക
+    </button>
+
+    <div id="message" class="info" role="status" aria-live="polite">
+      PDF തയ്യാറാക്കാൻ ബട്ടൺ അമർത്തുക.
+    </div>
+
+    <div class="note">
+      PDF-ൽ രജിസ്റ്റർ ചെയ്ത കളിക്കാരുടെ രജിസ്ട്രേഷൻ നമ്പർ,
+      പേര്, മൊബൈൽ നമ്പർ, സ്ഥലം, കളിക്കുന്ന റോൾ,
+      ബാറ്റിങ് ശൈലി, ബൗളിങ് ശൈലി, ഫോട്ടോ എന്നിവ ഉൾപ്പെടുത്താനാണ്
+      സംവിധാനം ഒരുക്കിയിരിക്കുന്നത്.
+      <br><br>
+      കളിക്കാരുടെ മൊബൈൽ നമ്പറുകളും ഫോട്ടോകളും അടങ്ങിയ PDF
+      ടീം ഉടമകളുമായി മാത്രം സുരക്ഷിതമായി പങ്കിടുക.
+    </div>
+  </main>
+
+  <script>
+    const API_URL =
+      "https://script.google.com/macros/s/AKfycbydD5G_BHVGIZIkXSfVgXi4DeL8elCX4wZ1st5QEHUq7-MqvIozyyptgp1k_vIBBACR/exec";
+
+    const button = document.getElementById("generateButton");
+    const message = document.getElementById("message");
+    const pinInput = document.getElementById("pin");
+
+    function showMessage(text, type) {
+      message.className = type;
+      message.replaceChildren();
+      message.appendChild(document.createTextNode(text));
+    }
+
+    button.addEventListener("click", async function () {
+      const pin = pinInput.value.trim();
+
+      if (!pin) {
+        showMessage("ദയവായി Admin PIN നൽകുക.", "error");
+        pinInput.focus();
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "PDF തയ്യാറാക്കുന്നു...";
+      showMessage(
+        "കാത്തിരിക്കുക. രജിസ്ട്രേഷൻ വിവരങ്ങൾ പരിശോധിക്കുന്നു...",
+        "info"
+      );
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify({
+            action: "generateRegistrationPdf",
+            pin: pin
+          })
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(
+            result.message || "PDF തയ്യാറാക്കാൻ കഴിഞ്ഞില്ല."
+          );
+        }
+
+        showMessage(
+          "PDF വിജയകരമായി തയ്യാറാക്കി. കളിക്കാർ: " +
+          (result.playerCount ?? result.count ?? "ലഭ്യമായ എണ്ണം") +
+          ".",
+          "success"
+        );
+
+        if (result.pdfUrl) {
+          const link = document.createElement("a");
+          link.href = result.pdfUrl;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "PDF തുറക്കുക";
+          link.style.display = "inline-block";
+          link.style.marginTop = "12px";
+
+          message.appendChild(document.createElement("br"));
+          message.appendChild(link);
+
+          const copyButton = document.createElement("button");
+          copyButton.type = "button";
+          copyButton.textContent = "PDF ലിങ്ക് പകർത്തുക";
+          copyButton.style.marginTop = "12px";
+
+          copyButton.addEventListener("click", async function () {
+            try {
+              await navigator.clipboard.writeText(result.pdfUrl);
+              showMessage(
+                "PDF ലിങ്ക് പകർത്തി. അത് WhatsApp വഴി പങ്കിടാം: " +
+                result.pdfUrl,
+                "success"
+              );
+            } catch (error) {
+              showMessage(
+                "PDF ലിങ്ക്: " + result.pdfUrl,
+                "success"
+              );
+            }
+          });
+
+          message.appendChild(document.createElement("br"));
+          message.appendChild(copyButton);
+        } else {
+          showMessage(
+            "സർവർ വിജയകരമായ മറുപടി നൽകി; എന്നാൽ PDF ലിങ്ക് ലഭിച്ചില്ല. Apps Script ഫലം പരിശോധിക്കുക.",
+            "error"
+          );
+        }
+
+      } catch (error) {
+        showMessage(
+          "പിശക്: " + error.message +
+          " — Apps Script-ൽ PDF കോഡ് ചേർത്തിട്ടുണ്ടോ എന്നും പുതിയ പതിപ്പ് Deploy ചെയ്തിട്ടുണ്ടോ എന്നും പരിശോധിക്കുക.",
+          "error"
+        );
+      } finally {
+        button.disabled = false;
+        button.textContent = "PDF തയ്യാറാക്കുക";
+      }
+    });
+  </script>
+</body>
+</html>
