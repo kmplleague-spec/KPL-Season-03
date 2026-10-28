@@ -1,0 +1,790 @@
+/* ==========================================================
+   KPL SEASON 03 - COMPLETE APPS SCRIPT
+   Teams + Players + Add Player + Auction + Live State
+   Budget: Rs. 100000 per team
+   Maximum players: 8 per team
+   Base price: Rs. 1000
+   Bid increment: Rs. 1000
+   ========================================================== */
+
+const KPL_CONFIG = {
+  SPREADSHEET_ID: "1Sc3FNcCCTNezxmMiMuJamliAmFnVsLuHf71brYze-Rc",
+  TEAMS_SHEET: "Teams",
+  PLAYERS_SHEET: "Players",
+  TEAM_BUDGET: 100000,
+  MAX_PLAYERS: 8,
+  BASE_PRICE: 1000,
+  BID_INCREMENT: 1000,
+  STATE_KEY: "KPL_S03_AUCTION_STATE"
+};
+
+const OFFICIAL_TEAMS = [
+  "OPTICS PERIYA",
+  "RSA NILESHWARAM",
+  "IJUZ KR BDK",
+  "RAJEEVIJI KALLIOT",
+  "SRS FRIENDS",
+  "ACADEMY BOYS",
+  "RAM BROTHERS KALAMNAGAR",
+  "LEGENDS KASARAGOD",
+  "PERIYAS",
+  "BASC",
+  "KALLAI BROTHERS NILESHWAR",
+  "VOLCANO VARANJOOR",
+  "SUPER STRIKERS ERUMAKULAM",
+  "WINDIES MARIKKALAM",
+  "SHIVAJI KOTTAPARA",
+  "FALCONS ERIYA"
+];
+
+const PLAYER_HEADERS = [
+  "RegistrationNumber",
+  "PlayerName",
+  "Mobile",
+  "Place",
+  "Role",
+  "BattingStyle",
+  "BowlingStyle",
+  "PhotoURL",
+  "AuctionStatus",
+  "SoldTeam",
+  "SoldPrice"
+];
+
+/* ---------------- COMMON HELPERS ---------------- */
+
+function kplJson(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function kplSpreadsheet() {
+  return SpreadsheetApp.openById(KPL_CONFIG.SPREADSHEET_ID);
+}
+
+function kplNormalize(value) {
+  return String(value == null ? "" : value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function kplHeaders(sheet) {
+  if (!sheet || sheet.getLastColumn() === 0) return [];
+
+  return sheet.getRange(1, 1, 1, sheet.getLastColumn())
+    .getDisplayValues()[0]
+    .map(function (header) {
+      return String(header).trim();
+    });
+}
+
+function kplColumn(headers, names) {
+  const normalized = headers.map(kplNormalize);
+
+  for (let i = 0; i < names.length; i++) {
+    const index = normalized.indexOf(kplNormalize(names[i]));
+    if (index !== -1) return index;
+  }
+
+  return -1;
+}
+
+function kplReadObjects(sheet) {
+  if (!sheet || sheet.getLastRow() < 2) return [];
+
+  const values = sheet.getDataRange().getDisplayValues();
+  const headers = values.shift();
+
+  return values.map(function (row, index) {
+    const obj = { _row: index + 2 };
+
+    headers.forEach(function (header, i) {
+      obj[String(header).trim()] = row[i] || "";
+    });
+
+    return obj;
+  }).filter(function (obj) {
+    return Object.keys(obj).some(function (key) {
+      return key !== "_row" && String(obj[key]).trim() !== "";
+    });
+  });
+}
+
+function kplGetPlayersSheet() {
+  const sheet = kplSpreadsheet()
+    .getSheetByName(KPL_CONFIG.PLAYERS_SHEET);
+
+  if (!sheet) {
+    throw new Error('Players ഷീറ്റ് കാണുന്നില്ല. പേര് "Players" ആണെന്ന് പരിശോധിക്കുക.');
+  }
+
+  return sheet;
+}
+
+function kplGetTeamsSheet() {
+  const sheet = kplSpreadsheet()
+    .getSheetByName(KPL_CONFIG.TEAMS_SHEET);
+
+  if (!sheet) throw new Error("Teams ഷീറ്റ് കാണുന്നില്ല.");
+
+  return sheet;
+}
+
+function kplGetState() {
+  const raw = PropertiesService.getScriptProperties()
+    .getProperty(KPL_CONFIG.STATE_KEY);
+
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch (err) {}
+  }
+
+  return {
+    currentPlayerId: "",
+    currentPlayerName: "",
+    currentBid: 0,
+    highestBidTeam: "",
+    auctionStatus: "WAITING",
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function kplSaveState(state) {
+  state.updatedAt = new Date().toISOString();
+
+  PropertiesService.getScriptProperties()
+    .setProperty(KPL_CONFIG.STATE_KEY, JSON.stringify(state));
+
+  return state;
+}
+
+function kplFindPlayer(identifier) {
+  const sheet = kplGetPlayersSheet();
+  const headers = kplHeaders(sheet);
+  const rows = kplReadObjects(sheet);
+
+  const idCol = kplColumn(headers, [
+    "RegistrationNumber", "Registration No", "RegNo", "PlayerID", "ID"
+  ]);
+  const nameCol = kplColumn(headers, ["PlayerName", "Name"]);
+  const wanted = String(identifier == null ? "" : identifier).trim();
+
+  if (!wanted) return null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const id = idCol === -1 ? "" : String(row[headers[idCol]] || "").trim();
+    const name = nameCol === -1 ? "" : String(row[headers[nameCol]] || "").trim();
+
+    if (id === wanted || name === wanted) {
+      return {
+        sheet: sheet,
+        headers: headers,
+        row: row,
+        rowNumber: row._row
+      };
+    }
+  }
+
+  return null;
+}
+
+function kplTeamName(team) {
+  const keys = Object.keys(team);
+  const index = kplColumn(keys, ["TeamName", "Team", "Name"]);
+
+  return index === -1 ? "" : String(team[keys[index]] || "").trim();
+}
+
+/* ---------------- ADD PLAYER ---------------- */
+
+function kplCreateRegistrationNumber(sheet, headers) {
+  const idCol = kplColumn(headers, [
+    "RegistrationNumber", "Registration No", "RegNo"
+  ]);
+
+  if (idCol === -1) {
+    throw new Error("RegistrationNumber കോളം കണ്ടെത്തിയില്ല.");
+  }
+
+  const rows = kplReadObjects(sheet);
+  let highest = 0;
+
+  rows.forEach(function (row) {
+    const value = String(row[headers[idCol]] || "").trim();
+    const match = value.match(/^KPL(\d+)$/i);
+
+    if (match) {
+      highest = Math.max(highest, Number(match[1]));
+    }
+  });
+
+  let number = highest + 1;
+  let registration = "";
+
+  do {
+    registration = "KPL" + String(number).padStart(3, "0");
+    number++;
+
+  } while (rows.some(function (row) {
+    return String(row[headers[idCol]] || "").trim().toUpperCase()
+      === registration;
+  }));
+
+  return registration;
+}
+
+function kplAddPlayer(data) {
+  const sheet = kplGetPlayersSheet();
+  const headers = kplHeaders(sheet);
+
+  const missing = PLAYER_HEADERS.filter(function (required) {
+    return kplColumn(headers, [required]) === -1;
+  });
+
+  if (missing.length) {
+    throw new Error(
+      "Players ഷീറ്റിൽ ഈ കോളങ്ങൾ കാണുന്നില്ല: " + missing.join(", ")
+    );
+  }
+
+  const name = String(data.playerName || data.name || "").trim();
+  const mobile = String(data.mobile || "").trim();
+  const place = String(data.place || "").trim();
+  const role = String(data.role || "").trim();
+  const batting = String(data.battingStyle || "").trim();
+  const bowling = String(data.bowlingStyle || "").trim();
+  const photo = String(data.photoURL || data.photoUrl || "").trim();
+
+  if (!name) throw new Error("കളിക്കാരന്റെ പേര് നൽകുക.");
+  if (!mobile) throw new Error("മൊബൈൽ നമ്പർ നൽകുക.");
+  if (!/^[0-9+\-\s()]{7,20}$/.test(mobile)) {
+    throw new Error("ശരിയായ മൊബൈൽ നമ്പർ നൽകുക.");
+  }
+  if (!place) throw new Error("സ്ഥലം നൽകുക.");
+
+  const allowedRoles = [
+    "Batsman", "Bowler", "All-Rounder", "Wicket Keeper"
+  ];
+
+  if (allowedRoles.indexOf(role) === -1) {
+    throw new Error("ശരിയായ കളിക്കുന്ന സ്ഥാനം തിരഞ്ഞെടുക്കുക.");
+  }
+
+  if (photo && !/^https?:\/\/\S+$/i.test(photo)) {
+    throw new Error("ഫോട്ടോ ലിങ്ക് ശരിയായ HTTP/HTTPS ലിങ്കായിരിക്കണം.");
+  }
+
+  const existing = kplReadObjects(sheet);
+
+  const mobileCol = kplColumn(headers, ["Mobile"]);
+  const nameCol = kplColumn(headers, ["PlayerName", "Name"]);
+
+  const normalizedMobile = mobile.replace(/\D/g, "");
+
+  const duplicate = existing.some(function (player) {
+    const oldMobile = String(player[headers[mobileCol]] || "")
+      .replace(/\D/g, "");
+
+    return normalizedMobile && oldMobile === normalizedMobile;
+  });
+
+  if (duplicate) {
+    throw new Error("ഈ മൊബൈൽ നമ്പർ ഉപയോഗിച്ച് കളിക്കാരനെ ചേർത്തിട്ടുണ്ട്.");
+  }
+
+  const registration = kplCreateRegistrationNumber(sheet, headers);
+
+  const record = {
+    RegistrationNumber: registration,
+    PlayerName: name,
+    Mobile: mobile,
+    Place: place,
+    Role: role,
+    BattingStyle: batting,
+    BowlingStyle: bowling,
+    PhotoURL: photo,
+    AuctionStatus: "UNSOLD",
+    SoldTeam: "",
+    SoldPrice: 0
+  };
+
+  const newRow = new Array(headers.length).fill("");
+
+  headers.forEach(function (header, index) {
+    const key = PLAYER_HEADERS.find(function (item) {
+      return kplNormalize(item) === kplNormalize(header);
+    });
+
+    if (key && Object.prototype.hasOwnProperty.call(record, key)) {
+      newRow[index] = record[key];
+    }
+  });
+
+  sheet.appendRow(newRow);
+
+  return {
+    registrationNumber: registration,
+    playerName: name,
+    message: "കളിക്കാരനെ വിജയകരമായി ചേർത്തു."
+  };
+}
+
+/* ---------------- TEAM SUMMARY ---------------- */
+
+function kplTeamSummary() {
+  const teams = kplReadObjects(kplGetTeamsSheet());
+  const playerSheet = kplGetPlayersSheet();
+  const players = kplReadObjects(playerSheet);
+  const headers = kplHeaders(playerSheet);
+
+  const soldTeamCol = kplColumn(headers, ["SoldTeam"]);
+  const soldPriceCol = kplColumn(headers, ["SoldPrice"]);
+  const statusCol = kplColumn(headers, ["AuctionStatus", "Status"]);
+
+  const soldTeamKey = soldTeamCol === -1 ? "" : headers[soldTeamCol];
+  const soldPriceKey = soldPriceCol === -1 ? "" : headers[soldPriceCol];
+  const statusKey = statusCol === -1 ? "" : headers[statusCol];
+
+  return teams.map(function (team) {
+    const name = kplTeamName(team);
+
+    const sold = players.filter(function (player) {
+      return String(player[statusKey] || "").trim().toUpperCase() === "SOLD"
+        && String(player[soldTeamKey] || "").trim().toLowerCase()
+          === name.toLowerCase();
+    });
+
+    const spent = sold.reduce(function (sum, player) {
+      return sum + (Number(
+        String(player[soldPriceKey] || "0").replace(/[^\d.-]/g, "")
+      ) || 0);
+    }, 0);
+
+    return Object.assign({}, team, {
+      teamName: name,
+      budget: KPL_CONFIG.TEAM_BUDGET,
+      spent: spent,
+      remainingBudget: KPL_CONFIG.TEAM_BUDGET - spent,
+      playerCount: sold.length,
+      maxPlayers: KPL_CONFIG.MAX_PLAYERS
+    });
+  });
+}
+
+/* ---------------- PLAYER API OUTPUT ---------------- */
+
+function kplPlayersForApi() {
+  const sheet = kplGetPlayersSheet();
+  const headers = kplHeaders(sheet);
+  const players = kplReadObjects(sheet);
+
+  const idCol = kplColumn(headers, [
+    "RegistrationNumber", "Registration No", "RegNo", "PlayerID", "ID"
+  ]);
+  const nameCol = kplColumn(headers, ["PlayerName", "Name"]);
+  const statusCol = kplColumn(headers, ["AuctionStatus", "Status"]);
+  const teamCol = kplColumn(headers, ["SoldTeam"]);
+  const priceCol = kplColumn(headers, ["SoldPrice"]);
+
+  return players.map(function (player) {
+    const get = function (index) {
+      return index === -1 ? "" : player[headers[index]] || "";
+    };
+
+    return Object.assign({}, player, {
+      id: get(idCol),
+      registrationNumber: get(idCol),
+      playerName: get(nameCol),
+      name: get(nameCol),
+      auctionStatus: get(statusCol),
+      soldTeam: get(teamCol),
+      soldPrice: get(priceCol)
+    });
+  });
+}
+
+/* ---------------- GET API ---------------- */
+
+function doGet(e) {
+  try {
+    const action = e && e.parameter && e.parameter.action
+      ? String(e.parameter.action)
+      : "ping";
+
+    if (action === "ping") {
+      return kplJson({
+        success: true,
+        message: "KPL Season 03 API Connected"
+      });
+    }
+
+    if (action === "teams") {
+      return kplJson({ success: true, teams: kplTeamSummary() });
+    }
+
+    if (action === "players") {
+      return kplJson({ success: true, players: kplPlayersForApi() });
+    }
+
+    if (action === "state") {
+      return kplJson({ success: true, state: kplGetState() });
+    }
+
+    if (action === "dashboard") {
+      return kplJson({
+        success: true,
+        teams: kplTeamSummary(),
+        players: kplPlayersForApi(),
+        state: kplGetState()
+      });
+    }
+
+    return kplJson({
+      success: false,
+      message: "Unknown action: " + action
+    });
+
+  } catch (error) {
+    return kplJson({
+      success: false,
+      message: String(error.message || error)
+    });
+  }
+}
+
+/* ---------------- POST DATA / ADMIN AUTH ---------------- */
+
+function kplPostData(e) {
+  if (e && e.parameter && e.parameter.data) {
+    try {
+      return JSON.parse(e.parameter.data);
+    } catch (err) {}
+  }
+
+  if (e && e.postData && e.postData.contents) {
+    const raw = e.postData.contents;
+
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      const result = {};
+
+      raw.split("&").forEach(function (pair) {
+        const parts = pair.split("=");
+        const key = decodeURIComponent((parts[0] || "").replace(/\+/g, " "));
+        const value = decodeURIComponent(
+          (parts.slice(1).join("=") || "").replace(/\+/g, " ")
+        );
+        result[key] = value;
+      });
+
+      if (result.data) {
+        try {
+          return JSON.parse(result.data);
+        } catch (err2) {}
+      }
+
+      return result;
+    }
+  }
+
+  return e && e.parameter ? e.parameter : {};
+}
+
+function kplCheckAdmin(data) {
+  const savedPin = PropertiesService.getScriptProperties()
+    .getProperty("KPL_ADMIN_PIN");
+
+  if (!savedPin) {
+    throw new Error("Apps Script-ൽ KPL_ADMIN_PIN സജ്ജീകരിച്ചിട്ടില്ല.");
+  }
+
+  if (String(data.pin || "") !== String(savedPin)) {
+    throw new Error("തെറ്റായ Admin PIN.");
+  }
+}
+
+/* ---------------- POST API: PLAYER + AUCTION ---------------- */
+
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  let locked = false;
+
+  try {
+    const data = kplPostData(e);
+    const action = String(data.action || "").trim();
+
+    kplCheckAdmin(data);
+
+    lock.waitLock(15000);
+    locked = true;
+
+    let state = kplGetState();
+
+    /* Add a new player */
+    if (action === "addPlayer") {
+      const result = kplAddPlayer(data);
+
+      return kplJson({
+        success: true,
+        message: result.message,
+        player: result
+      });
+    }
+
+    /* Select current player */
+    if (action === "setCurrentPlayer") {
+      const identifier = data.playerId || data.registrationNumber
+        || data.playerName || data.player || data.id || "";
+
+      const found = kplFindPlayer(
+        typeof identifier === "object"
+          ? identifier.registrationNumber || identifier.id || identifier.name
+          : identifier
+      );
+
+      if (!found) throw new Error("കളിക്കാരനെ Players ഷീറ്റിൽ കണ്ടെത്തിയില്ല.");
+
+      const statusCol = kplColumn(found.headers, ["AuctionStatus", "Status"]);
+      if (statusCol !== -1) {
+        const status = String(
+          found.row[found.headers[statusCol]] || ""
+        ).trim().toUpperCase();
+
+        if (status === "SOLD") {
+          throw new Error("ഈ കളിക്കാരൻ ഇതിനകം SOLD ആണ്.");
+        }
+      }
+
+      const nameCol = kplColumn(found.headers, ["PlayerName", "Name"]);
+      const idCol = kplColumn(found.headers, [
+        "RegistrationNumber", "Registration No", "RegNo", "PlayerID", "ID"
+      ]);
+
+      state = {
+        currentPlayerId: idCol === -1 ? "" :
+          String(found.row[found.headers[idCol]] || ""),
+        currentPlayerName: nameCol === -1 ? "" :
+          String(found.row[found.headers[nameCol]] || ""),
+        currentBid: KPL_CONFIG.BASE_PRICE,
+        highestBidTeam: "",
+        auctionStatus: "LIVE",
+        updatedAt: new Date().toISOString()
+      };
+
+      kplSaveState(state);
+
+      return kplJson({
+        success: true,
+        message: "കളിക്കാരനെ ലേലത്തിനായി തിരഞ്ഞെടുത്തു.",
+        state: state
+      });
+    }
+
+    /* Place bid */
+    if (action === "placeBid") {
+      if (!state.currentPlayerId && !state.currentPlayerName) {
+        throw new Error("ആദ്യം ഒരു കളിക്കാരനെ തിരഞ്ഞെടുക്കുക.");
+      }
+
+      if (state.auctionStatus !== "LIVE") {
+        throw new Error("ഇപ്പോൾ ലേലം സജീവമല്ല.");
+      }
+
+      const teamName = String(
+        data.teamName || data.bidTeam || data.team || ""
+      ).trim();
+
+      const amount = Number(data.bidAmount || data.amount || data.bid || 0);
+
+      if (!teamName) throw new Error("ടീമിനെ തിരഞ്ഞെടുക്കുക.");
+
+      const teams = kplTeamSummary();
+      const team = teams.find(function (item) {
+        return kplTeamName(item).toLowerCase() === teamName.toLowerCase();
+      });
+
+      if (!team) throw new Error("ടീമിനെ Teams ഷീറ്റിൽ കണ്ടെത്തിയില്ല.");
+
+      const minimumBid = state.currentBid > 0
+        ? state.currentBid + KPL_CONFIG.BID_INCREMENT
+        : KPL_CONFIG.BASE_PRICE;
+
+      if (!Number.isFinite(amount) || amount < minimumBid ||
+          amount % KPL_CONFIG.BID_INCREMENT !== 0) {
+        throw new Error(
+          "അടുത്ത ബിഡ് കുറഞ്ഞത് ₹" + minimumBid +
+          " ആയിരിക്കണം; ₹1000 വീതം വർധിപ്പിക്കുക."
+        );
+      }
+
+      if (team.playerCount >= KPL_CONFIG.MAX_PLAYERS) {
+        throw new Error("ഈ ടീമിൽ 8 കളിക്കാർ ഇതിനകം ഉണ്ട്.");
+      }
+
+      if (amount > team.remainingBudget) {
+        throw new Error("ടീമിന്റെ ബാക്കി ബജറ്റ് ഈ ബിഡിന് മതിയാകില്ല.");
+      }
+
+      state.currentBid = amount;
+      state.highestBidTeam = teamName;
+      state.auctionStatus = "LIVE";
+      kplSaveState(state);
+
+      return kplJson({
+        success: true,
+        message: "ബിഡ് രേഖപ്പെടുത്തി.",
+        state: state,
+        teams: kplTeamSummary()
+      });
+    }
+
+    /* Sell player to highest bidding team */
+    if (action === "sellPlayer") {
+      if (!state.currentPlayerId && !state.currentPlayerName) {
+        throw new Error("ലേലത്തിൽ നിലവിലെ കളിക്കാരനില്ല.");
+      }
+
+      if (!state.highestBidTeam || Number(state.currentBid) <= 0) {
+        throw new Error("SOLD ചെയ്യാൻ സാധുവായ ബിഡ് ഇല്ല.");
+      }
+
+      const found = kplFindPlayer(
+        state.currentPlayerId || state.currentPlayerName
+      );
+
+      if (!found) throw new Error("കളിക്കാരനെ കണ്ടെത്തിയില്ല.");
+
+      const team = kplTeamSummary().find(function (item) {
+        return kplTeamName(item).toLowerCase()
+          === state.highestBidTeam.toLowerCase();
+      });
+
+      if (!team) throw new Error("വിജയിച്ച ടീമിനെ കണ്ടെത്തിയില്ല.");
+
+      if (team.playerCount >= KPL_CONFIG.MAX_PLAYERS) {
+        throw new Error("ഈ ടീമിൽ പരമാവധി 8 കളിക്കാർ ഉണ്ട്.");
+      }
+
+      if (Number(state.currentBid) > team.remainingBudget) {
+        throw new Error("ടീമിന്റെ ബജറ്റ് മതിയാകില്ല.");
+      }
+
+      const statusCol = kplColumn(found.headers, ["AuctionStatus", "Status"]);
+      const teamCol = kplColumn(found.headers, ["SoldTeam"]);
+      const priceCol = kplColumn(found.headers, ["SoldPrice"]);
+
+      if (statusCol === -1 || teamCol === -1 || priceCol === -1) {
+        throw new Error(
+          "Players ഷീറ്റിൽ AuctionStatus, SoldTeam, SoldPrice കോളങ്ങൾ വേണം."
+        );
+      }
+
+      found.sheet.getRange(found.rowNumber, statusCol + 1).setValue("SOLD");
+      found.sheet.getRange(found.rowNumber, teamCol + 1)
+        .setValue(state.highestBidTeam);
+      found.sheet.getRange(found.rowNumber, priceCol + 1)
+        .setValue(Number(state.currentBid));
+
+      state.auctionStatus = "SOLD";
+      kplSaveState(state);
+
+      return kplJson({
+        success: true,
+        message: "കളിക്കാരനെ SOLD ആയി രേഖപ്പെടുത്തി.",
+        state: state,
+        teams: kplTeamSummary()
+      });
+    }
+
+    /* Mark unsold */
+    if (action === "markUnsold") {
+      if (!state.currentPlayerId && !state.currentPlayerName) {
+        throw new Error("നിലവിലെ കളിക്കാരനില്ല.");
+      }
+
+      const found = kplFindPlayer(
+        state.currentPlayerId || state.currentPlayerName
+      );
+
+      if (!found) throw new Error("കളിക്കാരനെ കണ്ടെത്തിയില്ല.");
+
+      const statusCol = kplColumn(found.headers, ["AuctionStatus", "Status"]);
+
+      if (statusCol === -1) {
+        throw new Error("AuctionStatus കോളം കണ്ടെത്തിയില്ല.");
+      }
+
+      found.sheet.getRange(found.rowNumber, statusCol + 1)
+        .setValue("UNSOLD");
+
+      state.auctionStatus = "UNSOLD";
+      kplSaveState(state);
+
+      return kplJson({
+        success: true,
+        message: "കളിക്കാരനെ UNSOLD ആയി രേഖപ്പെടുത്തി.",
+        state: state
+      });
+    }
+
+    /* Reset current auction */
+    if (action === "resetCurrentPlayer") {
+      state = {
+        currentPlayerId: "",
+        currentPlayerName: "",
+        currentBid: 0,
+        highestBidTeam: "",
+        auctionStatus: "WAITING",
+        updatedAt: new Date().toISOString()
+      };
+
+      kplSaveState(state);
+
+      return kplJson({
+        success: true,
+        message: "നിലവിലെ ലേലം റീസെറ്റ് ചെയ്തു.",
+        state: state
+      });
+    }
+
+    return kplJson({
+      success: false,
+      message: "Unknown action: " + action
+    });
+
+  } catch (error) {
+    return kplJson({
+      success: false,
+      message: String(error.message || error)
+    });
+
+  } finally {
+    if (locked) {
+      try {
+        lock.releaseLock();
+      } catch (err) {}
+    }
+  }
+}
+
+/* ---------------- CHECK PLAYERS SHEET ---------------- */
+
+function checkKPLS03PlayersSheet() {
+  const sheet = kplGetPlayersSheet();
+  const headers = kplHeaders(sheet);
+
+  const missing = PLAYER_HEADERS.filter(function (required) {
+    return kplColumn(headers, [required]) === -1;
+  });
+
+  if (missing.length) {
+    throw new Error(
+      "Players ഷീറ്റിൽ കാണാത്ത കോളങ്ങൾ: " + missing.join(", ")
+    );
+  }
+
+  Logger.log("Players ഷീറ്റ് ശരിയാണ്: " + headers.join(", "));
+}
